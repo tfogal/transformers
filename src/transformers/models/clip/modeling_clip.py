@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Any, Optional, Tuple, Union
 
 import torch
+import thunder
 import torch.utils.checkpoint
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
@@ -571,7 +572,7 @@ class CLIPEncoder(nn.Module):
     def __init__(self, config: CLIPConfig):
         super().__init__()
         self.config = config
-        self.layers = nn.ModuleList([CLIPEncoderLayer(config) for _ in range(config.num_hidden_layers)])
+        self.layers = nn.ModuleList([thunder.jit(CLIPEncoderLayer(config)) for _ in range(config.num_hidden_layers)])
         self.gradient_checkpointing = False
 
     def forward(
@@ -664,6 +665,11 @@ class CLIPTextTransformer(nn.Module):
         self.embeddings = CLIPTextEmbeddings(config)
         self.encoder = CLIPEncoder(config)
         self.final_layer_norm = nn.LayerNorm(embed_dim, eps=config.layer_norm_eps)
+
+        ## thunder.jit
+        self.embeddings = thunder.jit(self.embeddings)
+        # jit is added to the encoder in the CLIPEncoder class
+        self.final_layer_norm = thunder.jit(self.final_layer_norm)
 
         # For `pooled_output` computation
         self.eos_token_id = config.eos_token_id
